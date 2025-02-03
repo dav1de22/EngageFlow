@@ -9,11 +9,13 @@ import {
   Chip,
   CircularProgress,
   Alert,
-  Paper
+  Paper,
+  useTheme
 } from '@mui/material';
 import { RadioButtonUnchecked } from '@mui/icons-material';
 
 const TaskList = () => {
+  const theme = useTheme();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -59,7 +61,7 @@ const TaskList = () => {
         sx={{
           mb: 4,
           p: 3,
-          background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+          background: theme.palette.taskHeader.background,
           color: 'white',
           borderRadius: 2,
           position: 'relative',

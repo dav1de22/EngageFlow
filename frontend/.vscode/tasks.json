@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "install",
+			"path": "productivity-dashboard",
+			"group": "clean",
+			"problemMatcher": [],
+			"label": "npm: install - productivity-dashboard",
+			"detail": "install dependencies from package"
+		}
+	]
+}

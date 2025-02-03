@@ -10,9 +10,17 @@ import {
   CircularProgress,
   Alert,
   Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  FormControlLabel,
+  Switch,
   useTheme
 } from '@mui/material';
-import { RadioButtonUnchecked } from '@mui/icons-material';
+import { RadioButtonUnchecked, CheckCircle } from '@mui/icons-material';
 
 const TaskList = () => {
   const theme = useTheme();
@@ -20,8 +28,23 @@ const TaskList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [completedTasks, setCompletedTasks] = useState(0);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    deadline: '',
+    isCompleted: false
+  });
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [updateError, setUpdateError] = useState('');
 
+  // Fetch tasks
   useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = () => {
     setLoading(true);
     axios.get('https://localhost:7173/api/Tasks')
       .then(response => {
@@ -36,7 +59,81 @@ const TaskList = () => {
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  };
+
+  // Handle task click to open edit dialog
+  const handleTaskClick = (task) => {
+    setSelectedTask(task);
+    setEditFormData({
+      title: task.title,
+      description: task.description,
+      deadline: task.deadline.split('T')[0],
+      isCompleted: task.isCompleted
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  // Handle form field changes
+  const handleFormChange = (e) => {
+    const { name, value, checked } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: name === 'isCompleted' ? checked : value
+    }));
+  };
+
+  // Handle task update
+  const handleTaskUpdate = async (e) => {
+    e.preventDefault();
+    setUpdateLoading(true);
+    setUpdateError('');
+
+    const updatedTask = {
+      taskId: selectedTask.taskId,
+      ...editFormData
+    };
+
+    try {
+      const response = await axios.put(
+        `https://localhost:7173/api/Tasks/${selectedTask.taskId}`,
+        updatedTask
+      );
+      
+      // Update local state
+      setTasks(prevTasks =>
+        prevTasks.map(task =>
+          task.taskId === selectedTask.taskId ? response.data : task
+        )
+      );
+      setCompletedTasks(
+        tasks.filter(task => 
+          task.taskId === selectedTask.taskId 
+            ? editFormData.isCompleted 
+            : task.isCompleted
+        ).length
+      );
+      
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Error updating task:', error);
+      setUpdateError('Failed to update task. Please try again.');
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
+
+  // Handle dialog close
+  const handleCloseDialog = () => {
+    setIsEditDialogOpen(false);
+    setSelectedTask(null);
+    setEditFormData({
+      title: '',
+      description: '',
+      deadline: '',
+      isCompleted: false
+    });
+    setUpdateError('');
+  };
 
   if (loading) {
     return (
@@ -56,6 +153,7 @@ const TaskList = () => {
 
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
+      {/* Dashboard Header */}
       <Paper 
         elevation={3}
         sx={{
@@ -119,6 +217,7 @@ const TaskList = () => {
         />
       </Paper>
 
+      {/* Task List */}
       <List sx={{ 
         display: 'flex', 
         flexDirection: 'column', 
@@ -132,13 +231,19 @@ const TaskList = () => {
               '&:hover': {
                 transform: 'translateY(-2px)',
                 transition: 'transform 0.2s ease-in-out',
-                boxShadow: 3
+                boxShadow: 3,
+                cursor: 'pointer'
               }
             }}
+            onClick={() => handleTaskClick(task)}
           >
             <CardContent>
               <Box display="flex" alignItems="flex-start" gap={2}>
-                <RadioButtonUnchecked color="action" />
+                {task.isCompleted ? (
+                  <CheckCircle color="success" />
+                ) : (
+                  <RadioButtonUnchecked color="action" />
+                )}
                 <Box flexGrow={1}>
                   <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                     <Typography variant="h6" component="div">
@@ -162,6 +267,83 @@ const TaskList = () => {
           </Card>
         ))}
       </List>
+
+      {/* Edit Dialog */}
+      <Dialog 
+        open={isEditDialogOpen} 
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <form onSubmit={handleTaskUpdate}>
+          <DialogTitle>Edit Task</DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+              {updateError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {updateError}
+                </Alert>
+              )}
+              
+              <TextField
+                name="title"
+                label="Title"
+                value={editFormData.title}
+                onChange={handleFormChange}
+                fullWidth
+                required
+              />
+
+              <TextField
+                name="description"
+                label="Description"
+                value={editFormData.description}
+                onChange={handleFormChange}
+                multiline
+                rows={4}
+                fullWidth
+                required
+              />
+
+              <TextField
+                name="deadline"
+                label="Deadline"
+                type="date"
+                value={editFormData.deadline}
+                onChange={handleFormChange}
+                fullWidth
+                required
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    name="isCompleted"
+                    checked={editFormData.isCompleted}
+                    onChange={handleFormChange}
+                    color="primary"
+                  />
+                }
+                label={editFormData.isCompleted ? "Completed" : "Pending"}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseDialog}>Cancel</Button>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              color="primary"
+              disabled={updateLoading}
+            >
+              {updateLoading ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
     </Box>
   );
 };
